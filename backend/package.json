@@ -1,0 +1,18 @@
+{
+  "name": "gather-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch-path=index.js --watch-path=db.js --watch-path=initialEvents.js --watch-path=.env index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "nodemailer": "^10.1.0",
+    "pg": "^8.13.1",
+    "razorpay": "^2.9.6"
+  }
+}
