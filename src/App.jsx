@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ChatWidget from "./ChatWidget.jsx";
 
 const categories = [
   "All events",
@@ -233,7 +234,16 @@ function BookingModal({ event, user, onClose, onBookingComplete }) {
             });
             const verifyData = await verifyResponse.json();
             if (!verifyResponse.ok) throw new Error(verifyData.error || "Payment verification failed.");
-            onBookingComplete(verifyData.booking);
+            const confirmedBooking = verifyData.booking;
+            onBookingComplete({
+              ...confirmedBooking,
+              attendeeName: confirmedBooking.attendee_name,
+              attendeeEmail: confirmedBooking.attendee_email,
+              eventName: confirmedBooking.title,
+              eventDate: confirmedBooking.date,
+              eventTime: confirmedBooking.time,
+              emailStatus: confirmedBooking.email_status,
+            });
           } catch (verificationError) {
             setError(getRequestError(verificationError, "Payment verification failed."));
             setBusy(false);
@@ -597,6 +607,7 @@ export default function App() {
         setAuthNotice(`You're signed in as ${signedInUser.email}.`);
       }} />}
       {booking && <Confirmation booking={booking} onClose={() => setBooking(null)} />}
+      <ChatWidget apiUrl={apiUrl} />
     </div>
   );
 }

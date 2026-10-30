@@ -3,7 +3,7 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "24"
 
 # NOTE: the frontend calls the Render API directly (cross-origin) using the
 # build-time env var VITE_API_BASE (src/App.jsx -> apiUrl()). The server allow-lists

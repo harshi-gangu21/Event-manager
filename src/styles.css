@@ -189,6 +189,28 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .footer-brand .brand-mark { width: 20px; height: 20px; }
 .site-footer > span { color: #98968f; font-size: 8px; letter-spacing: .12em; }
 
+.chat-widget { position: fixed; z-index: 20; right: 24px; bottom: 24px; display: flex; align-items: flex-end; flex-direction: column; gap: 12px; }
+.chat-launcher { display: flex; align-items: center; gap: 9px; padding: 13px 18px; border: 0; border-radius: 999px; color: #fff; background: var(--purple); box-shadow: 0 8px 26px #27221a2b; font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .2s, background .2s; }
+.chat-launcher:hover { background: #4738de; transform: translateY(-2px); }
+.chat-launcher span { font-size: 17px; }
+.chat-panel { width: min(370px, calc(100vw - 32px)); height: min(520px, calc(100dvh - 110px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 14px 48px #27221a2b; }
+.chat-header { display: flex; align-items: center; justify-content: space-between; padding: 17px 18px; color: #fff; background: #25242d; }
+.chat-eyebrow { color: #c5befd; font-size: 9px; font-weight: 700; letter-spacing: .14em; }
+.chat-header h2 { margin: 4px 0 0; font-family: var(--heading); font-size: 17px; }
+.chat-close { width: 30px; height: 30px; border: 0; border-radius: 50%; color: #fff; background: #ffffff20; font-size: 23px; line-height: 1; cursor: pointer; }
+.chat-messages { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding: 16px; }
+.chat-welcome { margin: 0; color: #77766f; font-size: 12px; line-height: 1.65; }
+.chat-message, .chat-typing, .chat-error { max-width: 88%; margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.chat-message.user { align-self: flex-end; color: #fff; background: var(--purple); border-bottom-right-radius: 3px; }
+.chat-message.assistant, .chat-typing { align-self: flex-start; color: #33322f; background: #f3f1ed; border-bottom-left-radius: 3px; }
+.chat-typing span { color: var(--purple); animation: pulse 1s infinite; }
+.chat-error { align-self: stretch; color: #9a4037; background: #fff2f0; font-size: 11px; }
+.chat-form { display: flex; align-items: flex-end; gap: 8px; padding: 11px 12px; border-top: 1px solid var(--line); }
+.chat-form textarea { flex: 1; min-width: 0; resize: none; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: #fff; font-size: 12px; line-height: 1.5; }
+.chat-form button { padding: 10px 12px; border: 0; border-radius: 6px; color: #fff; background: var(--purple); font-size: 11px; font-weight: 700; cursor: pointer; }
+.chat-form button:disabled { opacity: .5; cursor: not-allowed; }
+.chat-disclaimer { margin: 0; padding: 0 12px 10px; color: #99978f; font-size: 9px; text-align: center; }
+
 .modal-backdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 20px; overflow-y: auto; background: #181720a8; backdrop-filter: blur(4px); }
 .booking-modal, .confirmation-modal { position: relative; width: min(100%, 455px); max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 8px; background: #fff; box-shadow: 0 20px 80px #0d0c1d55; animation: appear .2s ease-out; }
 .auth-modal { position: relative; width: min(100%, 420px); max-height: calc(100vh - 40px); overflow-y: auto; padding: 34px 30px 25px; border-radius: 8px; background: #fff; box-shadow: 0 20px 80px #0d0c1d55; animation: appear .2s ease-out; text-align: center; }
@@ -263,6 +285,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .site-footer { padding: 0 5%; }
 }
 @media (max-width: 700px) {
+  .chat-widget { right: 14px; bottom: 14px; }
+  .chat-panel { height: min(500px, calc(100dvh - 94px)); }
   .announcement { padding: 0 8px; font-size: 9px; }
 .live-stats { gap: 9px; padding: 11px 14px; }
 .live-stat strong { font-size: 17px; }
