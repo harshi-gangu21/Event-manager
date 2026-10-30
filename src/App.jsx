@@ -33,7 +33,6 @@ const EMOJI_FOR_CATEGORY = {
 
 // Simple deterministic weather vibe per event date (demo flavour, no API cost)
 function vibeForDate(dateString) {
-  const day = new Date(`${dateString}T12:00:00`).getDay();
   const vibes = [
     { label: "Sunny skies likely", emoji: "☀️" },
     { label: "Perfect patio weather", emoji: "🌤️" },
@@ -43,6 +42,8 @@ function vibeForDate(dateString) {
     { label: "Cozy indoor vibes", emoji: "🪩" },
     { label: "Bright & breezy", emoji: "💛" },
   ];
+  const parsed = new Date(`${dateString ?? ""}T12:00:00`);
+  const day = Number.isNaN(parsed.getTime()) ? 0 : parsed.getDay();
   return vibes[day % vibes.length];
 }
 
