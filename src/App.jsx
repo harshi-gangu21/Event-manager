@@ -36,6 +36,36 @@ function formatPrice(price) {
   }).format(price);
 }
 
+const TOKEN_KEY = "gather_jwt";
+
+// In production (Netlify) the API lives on a separate host (Render/Railway).
+// Locally, Vite proxies /api to localhost:4000.
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+
+function apiUrl(path) {
+  return `${API_BASE}${path}`;
+}
+
+function saveToken(token) {
+  try { localStorage.setItem(TOKEN_KEY, token); } catch { /* private mode */ }
+}
+
+function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+
+function clearToken() {
+  try { localStorage.removeItem(TOKEN_KEY); } catch { /* noop */ }
+}
+
+function authHeaders() {
+  const token = getToken();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 function loadRazorpay() {
   return new Promise((resolve, reject) => {
     if (window.Razorpay) {
@@ -117,9 +147,9 @@ function BookingModal({ event, user, onClose, onBookingComplete }) {
     setError("");
     setBusy(true);
     try {
-      const orderResponse = await fetch("/api/orders", {
+      const orderResponse = await fetch(apiUrl("/api/orders"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ eventId: event.id, quantity }),
       });
       const orderData = await orderResponse.json();
@@ -137,9 +167,9 @@ function BookingModal({ event, user, onClose, onBookingComplete }) {
         theme: { color: "#5a4af4" },
         handler: async (payment) => {
           try {
-            const verifyResponse = await fetch("/api/payments/verify", {
+            const verifyResponse = await fetch(apiUrl("/api/payments/verify"), {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: authHeaders(),
               body: JSON.stringify({
                 ...payment,
                 attendeeName: name,
@@ -230,13 +260,14 @@ function AuthModal({ onClose, onAuthenticated }) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`/api/auth/${mode}`, {
+      const response = await fetch(apiUrl(`/api/auth/${mode}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "We couldn't complete sign in.");
+      saveToken(data.token);
       onAuthenticated(data.user);
     } catch (authError) {
       setError(getRequestError(authError, "We couldn't complete sign in."));
@@ -329,7 +360,7 @@ export default function App() {
 
   async function fetchEvents() {
     try {
-      const response = await fetch("/api/events");
+      const response = await fetch(apiUrl("/api/events"));
       if (!response.ok) throw new Error("We couldn't load the events right now.");
       setEvents(await response.json());
       setLoadError("");
@@ -342,13 +373,20 @@ export default function App() {
 
   useEffect(() => {
     fetchEvents();
-    fetch("/api/auth/me")
+    if (!getToken()) {
+      setLoading(false);
+      return;
+    }
+    fetch(apiUrl("/api/auth/me"), { headers: { Authorization: `Bearer ${getToken()}` } })
       .then(async (response) => {
-        if (!response.ok) throw new Error("We couldn't check your account.");
+        if (!response.ok) throw new Error("Session expired.");
         const data = await response.json();
         setUser(data.user);
       })
-      .catch(() => setAuthNotice("Account status couldn't be loaded. You can still browse and book as a guest."));
+      .catch(() => {
+        clearToken();
+        setUser(null);
+      });
   }, []);
 
   const filteredEvents = useMemo(() => {
@@ -369,8 +407,12 @@ export default function App() {
   async function signOut() {
     setAuthNotice("");
     try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
+      const response = await fetch(apiUrl("/api/auth/logout"), {
+        method: "POST",
+        headers: authHeaders(),
+      });
       if (!response.ok) throw new Error("We couldn't sign you out. Please try again.");
+      clearToken();
       setUser(null);
       setAuthNotice("You have been signed out.");
     } catch (error) {

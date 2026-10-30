@@ -7,15 +7,28 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "concurrently -k -n \"backend,frontend\" -c \"cyan,magenta\" \"npm:dev:backend\" \"npm:dev:frontend\"",
-    "dev:backend": "npm --prefix backend run dev",
-    "dev:frontend": "npm --prefix frontend run dev",
-    "start": "npm --prefix backend start",
-    "build": "npm --prefix frontend run build",
-    "preview": "npm --prefix frontend run preview",
-    "install:all": "npm --prefix backend install && npm --prefix frontend install"
+    "dev": "concurrently -k -n \"server,client\" -c \"cyan,magenta\" \"node --watch server/index.js\" \"vite\"",
+    "server": "node server/index.js",
+    "client": "vite",
+    "start": "node server/index.js",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^9.2.5",
+    "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.3.1",
+    "pg": "^8.23.1",
+    "razorpay": "^2.9.8",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }

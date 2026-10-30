@@ -10,4 +10,7 @@ export default defineConfig({
       "/api": process.env.API_PROXY_TARGET || "http://localhost:4000",
     },
   },
+  build: {
+    outDir: "dist",
+  },
 });

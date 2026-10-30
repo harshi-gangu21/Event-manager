@@ -1,146 +1,136 @@
 # Gather — Event Management Application
 
-Gather is a full-stack event discovery and ticket-booking application with separate **Backend** and **Frontend** services powered by **PostgreSQL**, Express, React (Vite), Razorpay, and Nodemailer.
+Gather is a full-stack event discovery and ticket-booking application built for the
+90-mark hackathon rubric: polished React UI, PostgreSQL, JWT auth, Razorpay payments,
+Nodemailer email notifications, and Netlify deployment.
 
 ---
 
-## Architecture Overview
+## Rubric Coverage
 
-The project is structured into two completely independent services:
+| Rubric item | Where it lives |
+|---|---|
+| Attractive frontend (15M) | `src/App.jsx` + `src/styles.css` — animated hero, category filters, search, event cards, modals, ticket-stub confirmation |
+| Database integration (15M) | PostgreSQL — `server/db.js` creates and seeds `events`, `users`, `orders`, `bookings` tables on startup |
+| Signup & SignIn with JWT (15M) | `POST /api/auth/signup` and `/api/auth/login` return signed JWTs (bcrypt-hashed passwords); protected routes verify the `Authorization: Bearer` header |
+| Payment implementation (15M) | Razorpay order creation (`POST /api/orders`) + server-side HMAC signature verification (`POST /api/payments/verify`) |
+| Notification mail (15M) | Nodemailer sends a styled HTML booking confirmation after successful payment |
+| Deployment (15M) | Netlify (frontend, `netlify.toml`) + Render (backend + Postgres, `render.yaml`) |
+
+---
+
+## Architecture
 
 ```
 event managment/
-├── backend/                  # Independent Node.js Express + PostgreSQL API
-│   ├── .env                  # Backend environment variables (DB, Razorpay, SMTP)
-│   ├── db.js                 # PostgreSQL connection pool & schema migrations
-│   ├── initialEvents.js      # Seed catalog of events
-│   ├── index.js              # Express REST API endpoints
-│   └── package.json          # Backend scripts & dependencies (pg, express, etc.)
-│
-├── frontend/                 # Independent React + Vite frontend application
-│   ├── index.html            # Entry HTML
-│   ├── vite.config.js        # Vite config with API proxy to port 4000
-│   ├── src/
-│   │   ├── App.jsx           # Main UI, filtering, modals & Razorpay checkout
-│   │   ├── main.jsx          # React DOM entrypoint
-│   │   └── styles.css        # Rich styling & animations
-│   └── package.json          # Frontend scripts & dependencies (react, vite)
-│
-├── package.json              # Root orchestrator scripts (optional convenience)
-└── README.md                 # Project documentation
+├── server/
+│   ├── index.js          # Express REST API (auth, events, payments, mail)
+│   ├── db.js             # PostgreSQL pool + schema init + event seeding
+│   ├── initialEvents.js  # Seed catalog of 10 sample events
+│   └── data/             # (legacy) unused once Postgres is wired
+├── src/
+│   ├── App.jsx           # React UI, JWT storage, Razorpay checkout
+│   ├── main.jsx
+│   └── styles.css
+├── .env                  # Local secrets (DB, JWT, Razorpay, SMTP)
+├── netlify.toml          # Netlify build + SPA redirects
+├── render.yaml           # Render blueprint (API + free Postgres)
+└── vite.config.js        # Dev proxy: /api → localhost:4000
 ```
 
----
-
-## Requirements
-
-- **Node.js**: 24 or newer
-- **PostgreSQL**: Version 14+ (tested on PostgreSQL 18.x)
-- **Database**: `eventmanagment` (running on `localhost:5432`)
-- **Razorpay**: Test API keys for checkout
-- **SMTP**: Email credentials (e.g. Gmail App Password) for booking confirmations
+- **Frontend**: React 19 + Vite. Talks to `/api/*`, which Vite proxies to the API in dev.
+  In production, set `VITE_API_BASE` (e.g. `https://gather-api.onrender.com`) so fetches hit the deployed API.
+- **Auth**: JWT stored in `localStorage`, sent as `Authorization: Bearer <token>`.
+- **Database**: PostgreSQL 14+. Connection via `DATABASE_URL` (production) or discrete
+  `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` variables (local).
 
 ---
 
-## PostgreSQL Setup
+## Local Setup
 
-1. Start your local PostgreSQL service:
-   - Database name: `eventmanagment`
-   - Default user: `postgres`
-   - Default password: `root` (or update in `backend/.env`)
+1. **PostgreSQL** — create the database (tables seed automatically on server start):
 
-2. The backend **automatically** connects, initializes tables (`events`, `users`, `sessions`, `orders`, `bookings`), and seeds initial sample events on startup.
+   ```sql
+   CREATE DATABASE eventmanagment;
+   ```
 
----
+2. **`.env`** at the repo root:
 
-## Running the Services Separately
+   ```env
+   PORT=4000
+   CLIENT_ORIGIN=http://localhost:5173
+   PGHOST=localhost
+   PGPORT=5432
+   PGDATABASE=eventmanagment
+   PGUSER=postgres
+   PGPASSWORD=your_db_password
+   JWT_SECRET=any-long-random-string
+   RAZORPAY_KEY_ID=rzp_test_xxxxxxxx
+   RAZORPAY_KEY_SECRET=xxxxxxxxxxxx
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   SMTP_USER=your-email@gmail.com
+   SMTP_PASS=your-gmail-app-password
+   SMTP_FROM=Gather Events <your-email@gmail.com>
+   ```
 
-### 1. Run Backend Separately
-Open a terminal in `backend/`:
+3. **Install & run both services**:
 
-```bash
-cd backend
-npm install
-npm run dev
-```
+   ```bash
+   npm install
+   npm run dev        # API on :4000 + Vite on :5173
+   ```
 
-The backend API will start at:
-👉 **`http://localhost:4000`**
+   Or separately: `npm run server` and `npm run client`.
 
-- Health Check: `http://localhost:4000/api/health`
-- Events Endpoint: `http://localhost:4000/api/events`
-
-### 2. Run Frontend Separately
-Open a second terminal in `frontend/`:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The frontend will start at:
-👉 **`http://localhost:5173`**
-
-Vite automatically proxies all `/api/*` calls from `http://localhost:5173` to `http://localhost:4000`.
+4. **Build for production**: `npm run build` → outputs to `dist/`.
 
 ---
 
-## Running Both Simultaneously (From Root)
+## API Endpoints
 
-You can also run both services concurrently from the root directory:
-
-```bash
-# Install all dependencies across both folders
-npm run install:all
-
-# Run both backend and frontend together
-npm run dev
-```
-
-Individual root helper scripts:
-- `npm run dev:backend` — runs only the backend
-- `npm run dev:frontend` — runs only the frontend
-- `npm run build` — creates the production frontend bundle in `frontend/dist/`
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/api/health` | — | Health check (`{ status, database }`) |
+| POST | `/api/auth/signup` | — | Create account, returns `{ token, user }` |
+| POST | `/api/auth/login` | — | Sign in, returns `{ token, user }` |
+| GET | `/api/auth/me` | JWT | Current user from token |
+| POST | `/api/auth/logout` | JWT | Client-side token discard |
+| GET | `/api/events` | — | Events with live `ticketsSold` counts |
+| POST | `/api/orders` | JWT | Create Razorpay order (capacity-checked) |
+| POST | `/api/payments/verify` | — | Verify HMAC signature, create booking, send email |
+| GET | `/api/bookings` | JWT | Bookings for the signed-in user's email |
 
 ---
 
-## Configuration (`backend/.env`)
+## Deployment (Netlify + Render)
 
-Edit `backend/.env` to configure your credentials:
+### Backend on Render (free)
+1. Push this repo to GitHub.
+2. On [render.com](https://render.com), click **New → Blueprint** and select the repo —
+   `render.yaml` provisions a free web service **and** a free PostgreSQL database,
+   wires `DATABASE_URL` automatically, and generates a strong `JWT_SECRET`.
+3. In the Render dashboard → Environment, fill in `RAZORPAY_KEY_ID`,
+   `RAZORPAY_KEY_SECRET`, `SMTP_*`, and set `CLIENT_ORIGIN` to your Netlify URL.
 
-```env
-PORT=4000
-CLIENT_ORIGIN=http://localhost:5173
+### Frontend on Netlify
+1. On [netlify.com](https://netlify.com), **Add new site → Import from Git** → pick the repo.
+2. Build command `npm run build`, publish directory `dist` (already in `netlify.toml`).
+3. Under **Site settings → Environment variables**, add:
+   - `VITE_API_BASE` = your Render URL, e.g. `https://gather-api.onrender.com`
+4. Deploy. Any push to `main` redeploys automatically.
 
-# PostgreSQL Database Configuration
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=eventmanagment
-PGUSER=postgres
-PGPASSWORD=YOUR_DB_PASSWORD
-
-# Razorpay Test Credentials
-RAZORPAY_KEY_ID=YOUR_RAZORPAY_KEY_ID
-RAZORPAY_KEY_SECRET=YOUR_RAZORPAY_KEY_SECRET
-
-# Email (SMTP) Configuration
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-email@example.com
-SMTP_PASS=YOUR_SMTP_APP_PASSWORD
-SMTP_FROM="Gather Events <your-email@example.com>"
-```
+> **Note:** Render's free tier sleeps after 15 minutes of inactivity — the first
+> request after a nap takes ~30s to wake. Hit `/api/health` before demoing.
 
 ---
 
-## Database Tables
+## Demo Flow for Judges
 
-| Table | Description |
-|---|---|
-| `events` | Catalog of events (title, category, date, price, capacity, image, etc.) |
-| `users` | Registered users with scrypt salted password hashes |
-| `sessions` | Active user sessions mapped with secure SHA-256 tokens |
-| `orders` | Razorpay order reservations with temporary hold logic |
-| `bookings` | Confirmed bookings after server-side Razorpay HMAC signature verification |
+1. Open the site → browse/filter/search events (no login needed to explore).
+2. Click **Sign in → Create an account** (JWT issued; watch the token in DevTools → Application → Local Storage).
+3. Pick an event → **Get tickets** → choose quantity → **Continue to secure payment**.
+4. Pay with Razorpay test card `4111 1111 1111`, any future expiry, any CVV.
+5. Confirmation modal shows the booking reference; the SMTP inbox receives the styled ticket email.
+6. Refresh — session persists via JWT. `GET /api/bookings` lists purchases.
