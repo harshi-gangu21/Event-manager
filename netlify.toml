@@ -5,7 +5,8 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Proxy API calls to the Render backend (set the URL in Netlify env: API_BASE_URL)
+# Proxy API calls to the Render backend.
+# Requires API_BASE_URL in Netlify env vars (no trailing slash), set BEFORE deploying.
 [[redirects]]
   from = "/api/*"
   to = ":API_BASE_URL/api/:splat"
