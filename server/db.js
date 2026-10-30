@@ -16,6 +16,7 @@ export async function initDb(seedEvents) {
       id UUID PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
+      password_salt TEXT NOT NULL DEFAULT '',
       password_hash TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -55,6 +56,7 @@ export async function initDb(seedEvents) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_salt TEXT NOT NULL DEFAULT ''`);
 
   for (const event of seedEvents) {
     await pool.query(

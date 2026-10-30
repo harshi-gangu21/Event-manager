@@ -1,5 +1,6 @@
 import "dotenv/config";
 import crypto from "node:crypto";
+import { promisify } from "node:util";
 import cors from "cors";
 import express from "express";
 import jwt from "jsonwebtoken";
@@ -11,6 +12,7 @@ import { initialEvents } from "./initialEvents.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
+const scrypt = promisify(crypto.scrypt);
 const jwtSecret = process.env.JWT_SECRET;
 const tokenLifetime = "7d";
 const authFailureLimit = 10;
@@ -127,6 +129,21 @@ function clearAuthFailures(request) {
   authFailures.delete(request.ip);
 }
 
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = await scrypt(password, salt, 64);
+  return { salt, hash: hash.toString("hex") };
+}
+
+async function verifyPassword(password, user) {
+  if (user.password_hash.startsWith("$2")) {
+    return bcrypt.compare(password, user.password_hash);
+  }
+  const candidate = await scrypt(password, user.password_salt, 64);
+  const storedHash = Buffer.from(user.password_hash, "hex");
+  return storedHash.length === candidate.length && crypto.timingSafeEqual(storedHash, candidate);
+}
+
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173" }));
 app.use(express.json({ limit: "20kb" }));
 
@@ -153,10 +170,11 @@ app.post("/api/auth/signup", async (request, response) => {
   if (existing.rowCount > 0) {
     return response.status(409).json({ error: "An account with this email already exists. Sign in instead." });
   }
-  const passwordHash = await bcrypt.hash(password, 12);
+  const { salt, hash } = await hashPassword(password);
   const { rows } = await pool.query(
-    `INSERT INTO users (id, name, email, password_hash) VALUES ($1,$2,$3,$4) RETURNING id, name, email`,
-    [crypto.randomUUID(), name.trim(), normalizedEmail, passwordHash],
+    `INSERT INTO users (id, name, email, password_salt, password_hash)
+     VALUES ($1,$2,$3,$4,$5) RETURNING id, name, email`,
+    [crypto.randomUUID(), name.trim(), normalizedEmail, salt, hash],
   );
   const user = rows[0];
   const token = jwt.sign({ sub: user.id, email: user.email, name: user.name }, jwtSecret, { expiresIn: tokenLifetime });
@@ -179,7 +197,7 @@ app.post("/api/auth/login", async (request, response) => {
   const normalizedEmail = email.trim().toLowerCase();
   const { rows } = await pool.query(`SELECT * FROM users WHERE email = $1`, [normalizedEmail]);
   const user = rows[0];
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+  if (!user || !(await verifyPassword(password, user))) {
     recordAuthFailure(request);
     return response.status(401).json({ error: "Email or password is incorrect." });
   }
@@ -312,7 +330,7 @@ app.post("/api/payments/verify", async (request, response) => {
     `INSERT INTO bookings (id, order_id, payment_id, event_id, quantity, amount, attendee_name, attendee_email)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
     [bookingId, orderId, paymentId, order.event_id, order.quantity, order.amount,
-     attendeeName.trim(), attendeeEmail.trim().toLowerCase()],
+      attendeeName.trim(), attendeeEmail.trim().toLowerCase()],
   );
   await pool.query(`UPDATE orders SET status = 'paid' WHERE id = $1`, [orderId]);
 
