@@ -5,13 +5,10 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Proxy API calls to the Render backend.
-# Requires API_BASE_URL in Netlify env vars (no trailing slash), set BEFORE deploying.
-[[redirects]]
-  from = "/api/*"
-  to = ":API_BASE_URL/api/:splat"
-  status = 200
-  force = true
+# NOTE: the frontend calls the Render API directly (cross-origin) using the
+# build-time env var VITE_API_BASE (src/App.jsx -> apiUrl()). The server allow-lists
+# this Netlify origin via CLIENT_ORIGIN (CORS). Netlify cannot substitute env vars
+# in redirect destinations, so a /api proxy redirect here would always 404.
 
 # SPA fallback: send every other route to index.html
 [[redirects]]
