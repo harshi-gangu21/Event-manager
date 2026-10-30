@@ -15,6 +15,8 @@ services:
         fromDatabase:
           name: gather-db
           property: connectionString
+      - key: PORT
+        value: "4000"
       - key: JWT_SECRET
         generateValue: true
       - key: CLIENT_ORIGIN

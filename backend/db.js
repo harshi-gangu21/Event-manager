@@ -9,13 +9,17 @@ const { Pool } = pg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const pool = new Pool({
-  host: process.env.PGHOST || "localhost",
-  port: Number(process.env.PGPORT) || 5432,
-  database: process.env.PGDATABASE || "eventmanagment",
-  user: process.env.PGUSER || "postgres",
-  password: process.env.PGPASSWORD || "root",
-});
+export const pool = new Pool(
+  process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
+    : {
+        host: process.env.PGHOST || "localhost",
+        port: Number(process.env.PGPORT) || 5432,
+        database: process.env.PGDATABASE || "eventmanagment",
+        user: process.env.PGUSER || "postgres",
+        password: process.env.PGPASSWORD || "root",
+      }
+);
 
 export const query = (text, params) => pool.query(text, params);
 
