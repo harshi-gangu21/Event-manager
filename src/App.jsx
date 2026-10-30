@@ -13,6 +13,39 @@ const categories = [
   "Social Activities",
 ];
 
+const CITY_LIST = [
+  "All cities",
+  ...Array.from(new Set([
+    "Mumbai", "Bengaluru", "Hyderabad", "Chennai", "Delhi", "Pune", "Kolkata", "Jaipur", "Goa",
+  ])),
+];
+
+function cityFromVenue(venue) {
+  const match = String(venue || "").split(",").map((part) => part.trim());
+  return match[match.length - 1] || "Unknown";
+}
+
+const EMOJI_FOR_CATEGORY = {
+  "Creative": "🎨", "Music": "🎧", "Food & Drink": "🍜", "Wellness": "🧘",
+  "Community": "🤝", "Weddings": "💍", "Birthdays": "🎂",
+  "Private Functions": "🥂", "Social Activities": "🚀",
+};
+
+// Simple deterministic weather vibe per event date (demo flavour, no API cost)
+function vibeForDate(dateString) {
+  const day = new Date(`${dateString}T12:00:00`).getDay();
+  const vibes = [
+    { label: "Sunny skies likely", emoji: "☀️" },
+    { label: "Perfect patio weather", emoji: "🌤️" },
+    { label: "Light breeze, great vibes", emoji: "🍃" },
+    { label: "Golden hour magic", emoji: "🌅" },
+    { label: "Clear evening ahead", emoji: "🌙" },
+    { label: "Cozy indoor vibes", emoji: "🪩" },
+    { label: "Bright & breezy", emoji: "💛" },
+  ];
+  return vibes[day % vibes.length];
+}
+
 function getRequestError(error, fallback) {
   if (error instanceof TypeError) {
     return "Gather can't reach its server. Start it with npm run dev, then reload this page.";
@@ -37,6 +70,7 @@ function formatPrice(price) {
 }
 
 const TOKEN_KEY = "gather_jwt";
+const WISHLIST_KEY = "gather_wishlist";
 
 // In production (Netlify) the API lives on a separate host (Render/Railway).
 // Locally, Vite proxies /api to localhost:4000.
@@ -56,6 +90,14 @@ function getToken() {
 
 function clearToken() {
   try { localStorage.removeItem(TOKEN_KEY); } catch { /* noop */ }
+}
+
+function loadWishlist() {
+  try { return JSON.parse(localStorage.getItem(WISHLIST_KEY)) ?? []; } catch { return []; }
+}
+
+function saveWishlist(list) {
+  try { localStorage.setItem(WISHLIST_KEY, JSON.stringify(list)); } catch { /* noop */ }
 }
 
 function authHeaders() {
@@ -100,23 +142,35 @@ function Icon({ name, size = 18 }) {
   return null;
 }
 
-function EventCard({ event, onBook }) {
+function EventCard({ event, onBook, wished, onToggleWishlist }) {
   const remaining = Math.max(0, event.capacity - event.ticketsSold);
+  const vibe = vibeForDate(event.date);
+  const fillPercent = event.capacity > 0 ? Math.min(100, Math.round((event.ticketsSold / event.capacity) * 100)) : 0;
   return (
     <article className="event-card">
       <div className="event-image-wrap">
         <img className="event-image" src={event.image} alt="" loading="lazy" />
-        <span className={`category-tag tag-${event.accent}`}>{event.category}</span>
+        <span className={`category-tag tag-${event.accent}`}>{EMOJI_FOR_CATEGORY[event.category] || "✨"} {event.category}</span>
         {remaining <= 10 && remaining > 0 && <span className="few-left">Only {remaining} left</span>}
         {remaining === 0 && <span className="few-left sold-out">Sold out</span>}
+        <button
+          className={`wishlist-heart ${wished ? "active" : ""}`}
+          onClick={() => onToggleWishlist(event.id)}
+          aria-label={wished ? "Remove from wishlist" : "Save to wishlist"}
+          title={wished ? "Remove from wishlist" : "Save to wishlist"}
+        >
+          {wished ? "♥" : "♡"}
+        </button>
       </div>
       <div className="event-content">
         <div className="event-meta"><span>{formatDate(event.date)}</span><span className="meta-dot" />{event.time}</div>
         <h3>{event.title}</h3>
         <p className="event-venue"><Icon name="pin" size={15} />{event.venue}</p>
         <p className="event-description">{event.description}</p>
+        <div className="fill-bar" aria-hidden="true"><span style={{ width: `${fillPercent}%` }} /></div>
         <div className="event-footer">
           <div><span className="price-label">From</span><strong>{formatPrice(event.price)}</strong></div>
+          <div className="vibe-chip" title="Weather vibe for the day">{vibe.emoji} {vibe.label}</div>
           <button className="book-button" onClick={() => onBook(event)} disabled={remaining === 0}>
             {remaining === 0 ? "Sold out" : "Get tickets"} <Icon name="arrow" size={15} />
           </button>
@@ -225,7 +279,13 @@ function BookingModal({ event, user, onClose, onBookingComplete }) {
                 <button type="button" onClick={() => setQuantity((value) => Math.min(10, remaining, value + 1))} aria-label="Add one ticket" disabled={quantity >= remaining}>+</button>
               </div>
             </div>
-            <div className="total-row"><span>Total</span><strong>{formatPrice(event.price * quantity)}</strong></div>
+            <div className="total-row">
+              <span>Total</span>
+              <strong>{formatPrice(event.price * quantity)}</strong>
+            </div>
+            {quantity >= 3 && (
+              <div className="group-deal-note">🎉 Group deal unlocked — you're bringing a crew of {quantity}!</div>
+            )}
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="checkout-button" type="submit" disabled={busy}>
               {busy ? <><span className="spinner" /> Connecting to checkout…</> : <>Continue to secure payment <Icon name="arrow" size={17} /></>}
@@ -322,6 +382,9 @@ function Confirmation({ booking, onClose }) {
   return (
     <div className="modal-backdrop" role="presentation">
       <section className="confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="confirmation-title">
+        <div className="confetti" aria-hidden="true">
+          {Array.from({ length: 18 }).map((_, index) => <i key={index} style={{ "--i": index }} />)}
+        </div>
         <div className="confirmation-icon"><Icon name="spark" size={28} /></div>
         <span className="eyebrow">YOU'RE ON THE LIST</span>
         <h2 id="confirmation-title">It's happening.</h2>
@@ -350,6 +413,10 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [user, setUser] = useState(null);
   const [activeCategory, setActiveCategory] = useState("All events");
+  const [activeCity, setActiveCity] = useState("All cities");
+  const [wishlist, setWishlist] = useState(loadWishlist);
+  const [showWishlistOnly, setShowWishlistOnly] = useState(false);
+  const [stats, setStats] = useState({ events: 0, tickets: 0, cities: 0 });
   const [search, setSearch] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
@@ -362,8 +429,15 @@ export default function App() {
     try {
       const response = await fetch(apiUrl("/api/events"));
       if (!response.ok) throw new Error("We couldn't load the events right now.");
-      setEvents(await response.json());
+      const data = await response.json();
+      setEvents(data);
       setLoadError("");
+      const cities = new Set(data.map((event) => cityFromVenue(event.venue)));
+      setStats({
+        events: data.length,
+        tickets: data.reduce((sum, event) => sum + (event.ticketsSold || 0), 0),
+        cities: cities.size,
+      });
     } catch (error) {
       setLoadError(getRequestError(error, "We couldn't load the events right now."));
     } finally {
@@ -393,10 +467,25 @@ export default function App() {
     const searchTerm = search.trim().toLowerCase();
     return events.filter((event) => {
       const matchesCategory = activeCategory === "All events" || event.category === activeCategory;
+      const matchesCity = activeCity === "All cities" || cityFromVenue(event.venue) === activeCity;
+      const matchesWishlist = !showWishlistOnly || wishlist.includes(event.id);
       const matchesSearch = !searchTerm || `${event.title} ${event.category} ${event.venue} ${event.description}`.toLowerCase().includes(searchTerm);
-      return matchesCategory && matchesSearch;
+      return matchesCategory && matchesCity && matchesWishlist && matchesSearch;
     });
-  }, [events, activeCategory, search]);
+  }, [events, activeCategory, activeCity, showWishlistOnly, wishlist, search]);
+
+  const cities = useMemo(
+    () => ["All cities", ...Array.from(new Set(events.map((event) => cityFromVenue(event.venue)))).sort()],
+    [events],
+  );
+
+  function toggleWishlist(eventId) {
+    setWishlist((current) => {
+      const next = current.includes(eventId) ? current.filter((id) => id !== eventId) : [...current, eventId];
+      saveWishlist(next);
+      return next;
+    });
+  }
 
   function completeBooking(confirmedBooking) {
     setSelectedEvent(null);
@@ -427,6 +516,13 @@ export default function App() {
         <a className="brand" href="#" aria-label="Gather home"><span className="brand-mark"><i /><i /><i /><i /></span>gather<span className="brand-period">.</span></a>
         <nav className="main-nav"><a className="nav-active" href="#events">Discover</a><a href="#about">Our thing</a></nav>
         <div className="account-actions">
+          <button
+            className={`account-button wishlist-toggle ${showWishlistOnly ? "wishlist-on" : ""}`}
+            onClick={() => setShowWishlistOnly((value) => !value)}
+            title="Show only your saved events"
+          >
+            ♥ Wishlist {wishlist.length > 0 && <span className="wishlist-count">{wishlist.length}</span>}
+          </button>
           {user
             ? <><span className="account-greeting">Hi, {user.name.split(" ")[0]}</span><button className="account-button sign-out-button" onClick={signOut}>Sign out</button></>
             : <button className="account-button" onClick={() => setShowAuth(true)}>Sign in</button>}
@@ -454,21 +550,32 @@ export default function App() {
         </section>
 
         <section className="events-section" id="events">
+          <div className="live-stats" role="status">
+            <div className="live-stat"><strong>{stats.events}</strong><span>live events</span></div>
+            <div className="live-stat"><strong>{stats.tickets}</strong><span>tickets sold</span></div>
+            <div className="live-stat"><strong>{stats.cities}</strong><span>cities on the map</span></div>
+            <div className="live-stat live-dot-wrap"><span className="live-dot" /> updating live</div>
+          </div>
           <div className="section-heading">
             <div><span className="eyebrow">THE GOOD STUFF</span><h2>Plans worth <span>leaving home for.</span></h2></div>
             <p>Handpicked happenings for the<br className="desktop-break" /> curious, the creative, the just-because.</p>
           </div>
           <div className="discovery-tools">
             <div className="category-list" role="tablist" aria-label="Filter events by category">
-              {categories.map((category) => <button key={category} role="tab" aria-selected={activeCategory === category} className={activeCategory === category ? "category-filter selected" : "category-filter"} onClick={() => setActiveCategory(category)}>{category}</button>)}
+              {categories.map((category) => <button key={category} role="tab" aria-selected={activeCategory === category} className={activeCategory === category ? "category-filter selected" : "category-filter"} onClick={() => setActiveCategory(category)}>{EMOJI_FOR_CATEGORY[category] ? `${EMOJI_FOR_CATEGORY[category]} ` : ""}{category}</button>)}
             </div>
-            <label className="search-box"><Icon name="search" size={18} /><input aria-label="Search events" placeholder="Find your kind of thing..." value={search} onChange={(change) => setSearch(change.target.value)} /><kbd>⌘ K</kbd></label>
+            <div className="discovery-right">
+              <select className="city-select" aria-label="Filter events by city" value={activeCity} onChange={(change) => setActiveCity(change.target.value)}>
+                {cities.map((city) => <option key={city} value={city}>{city}</option>)}
+              </select>
+              <label className="search-box"><Icon name="search" size={18} /><input aria-label="Search events" placeholder="Find your kind of thing..." value={search} onChange={(change) => setSearch(change.target.value)} /><kbd>⌘ K</kbd></label>
+            </div>
           </div>
 
           {loadError && <div className="state-message error-state" role="alert">{loadError} <button onClick={fetchEvents}>Try again</button></div>}
           {loading && <div className="state-message">Finding the good stuff<span className="loading-dots">...</span></div>}
           {!loading && !loadError && filteredEvents.length === 0 && <div className="state-message">No plans match that just yet. Try another search.</div>}
-          {!loading && !loadError && filteredEvents.length > 0 && <div className="event-grid">{filteredEvents.map((event) => <EventCard key={event.id} event={event} onBook={setSelectedEvent} />)}</div>}
+          {!loading && !loadError && filteredEvents.length > 0 && <div className="event-grid">{filteredEvents.map((event) => <EventCard key={event.id} event={event} onBook={setSelectedEvent} wished={wishlist.includes(event.id)} onToggleWishlist={toggleWishlist} />)}</div>}
           <div className="more-events"><span>THERE'S ALWAYS SOMETHING GOOD AROUND THE CORNER</span><span className="hand-drawn-arrow">↗</span></div>
         </section>
 

@@ -5,7 +5,14 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# SPA fallback: send every route to index.html
+# Proxy API calls to the Render backend (set the URL in Netlify env: API_BASE_URL)
+[[redirects]]
+  from = "/api/*"
+  to = ":API_BASE_URL/api/:splat"
+  status = 200
+  force = true
+
+# SPA fallback: send every other route to index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
